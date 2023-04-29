@@ -23,10 +23,13 @@ XGETARGV = $2E
 ;----------------------------------------------------------------------
 ;				imports
 ;----------------------------------------------------------------------
+.importzp cbp
+
 .import spar1
 	spar := spar1
 .import sopt1
 	sopt := sopt1
+
 .import StopOrCont
 
 ;----------------------------------------------------------------------
@@ -67,7 +70,7 @@ XGETARGV = $2E
 ;----------------------------------------------------------------------
 ;			Defines / Constantes
 ;----------------------------------------------------------------------
-VERSION = $20224010
+VERSION = $20232011
 .define PROGNAME "strerr"
 
 ;----------------------------------------------------------------------
@@ -138,8 +141,35 @@ VERSION = $20224010
 		lda	#EOK
 		sta	exit_code
 
-		ldy     #<(BUFEDT+.strlen(PROGNAME))
-		lda     #>(BUFEDT+.strlen(PROGNAME))
+		ldy	#<BUFEDT
+		lda	#>BUFEDT
+		sty	cbp
+		sta	cbp+1
+
+		; Saute le nom du programme
+		ldy	#$ff
+	loop_pgm:
+		iny
+		lda	(cbp),y
+		clc
+		beq	eol
+
+		cmp	#' '
+		bne	loop_pgm
+
+	eol:
+		; Ici si on a trouvé un ' ' => C=1
+		tya
+		ldy	cbp+1
+		adc	cbp
+		sta	cbp
+		bcc	loop_pgm_end
+
+		iny
+	loop_pgm_end:
+		tya
+		ldy	cbp
+
 		jsr	sopt
 		.asciiz	"QAHV"
 		bcs	err_param

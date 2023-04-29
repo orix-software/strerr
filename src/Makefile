@@ -2,7 +2,7 @@
 # Spécifique au Projet
 #
 
-PROJECT ?= hello
+PROJECT ?= strerr
 BUILD_PATH = ../build
 OBJ_PATH = $(BUILD_PATH)/obj
 BIN_PATH = $(BUILD_PATH)/bin
@@ -12,8 +12,8 @@ KERNEL_PATH = ../../orix-software/
 SHELL_PATH = ../../orix-software/
 SDK_PATH = ../../orix-sdk/
 
-LIB_PATH = $(SDK_PATH)/build/lib
-LIBS = orix-sdk.lib
+SDK_LIB_PATH = $(SDK_PATH)/build/lib
+SDK_LIBS = orix-sdk.lib
 
 START_ADDR ?= 0x0900
 
@@ -41,18 +41,24 @@ else
 	AR = $(CC65_HOME)/bin/ar65
 endif
 
+ifeq ($(LD65_CFG),)
+	LD65_CFG = -t $(TARGET)
+else
+	LD65_CFG := $(addprefix -C ,$(LD65_CFG))
+endif
+
 #
 # Définition des options pour les outils
 #
 
 ifeq ($(DEBUG),yes)
-	ASFLAGS = -t $(TARGET) -I ../ -I . -I $(SDK_PATH)/macros -I $(SDK_PATH)/include -I $(SHELL_PATH) -I $(KERNEL_PATH) -D VERBOSE_LEVEL=$(VERBOSE) --auto-import --list-bytes 0 -l $(@:.o=.lst) --debug-info
-	LDFLAGS = -t $(TARGET)  -Ln $(@).ca.sym -m $(@).map --lib-path $(LIB_PATH) --start-addr $(START_ADDR)
-	# LDFLAGS = -C "$(LD65_CFG)"  -Ln $(BUILD_PATH)/$(PROJECT).ca.sym -m $(BUILD_PATH)/$(PROJECT).map --lib-path $(LIB_PATH)
+	ASFLAGS = -t $(TARGET) --bin-include-dir ../datas -I ../ -I . -I $(SDK_PATH)/macros -I $(SDK_PATH)/include -I $(SHELL_PATH) -I $(KERNEL_PATH) -D VERBOSE_LEVEL=$(VERBOSE) --auto-import --list-bytes 0 -l $(@:.o=.lst) --debug-info
+	LDFLAGS = $(LD65_CFG)  -Ln $(@).ca.sym -m $(@).map --lib-path $(SDK_LIB_PATH) --start-addr $(START_ADDR)
+	# LDFLAGS = -C "$(LD65_CFG)"  -Ln $(BUILD_PATH)/$(PROJECT).ca.sym -m $(BUILD_PATH)/$(PROJECT).map --lib-path $(SDK_LIB_PATH)
 else
-	ASFLAGS = -t $(TARGET) -I ../ -I . -I $(SDK_PATH)/macros -I $(SDK_PATH)/include -I $(SHELL_PATH) -I $(KERNEL_PATH) -D VERBOSE_LEVEL=$(VERBOSE) --auto-import
-	LDFLAGS = -t $(TARGET)  --lib-path $(LIB_PATH) --start-addr $(START_ADDR)
-	# LDFLAGS = -C "$(LD65_CFG)"  --lib-path $(LIB_PATH)
+	ASFLAGS = -t $(TARGET) --bin-include-dir ../datas -I ../ -I . -I $(SDK_PATH)/macros -I $(SDK_PATH)/include -I $(SHELL_PATH) -I $(KERNEL_PATH) -D VERBOSE_LEVEL=$(VERBOSE) --auto-import
+	LDFLAGS = $(LD65_CFG)  --lib-path $(SDK_LIB_PATH) --start-addr $(START_ADDR)
+	# LDFLAGS = -C "$(LD65_CFG)"  --lib-path $(SDK_LIB_PATH)
 endif
 
 CREATE_DEP = --create-dep $(@:.o=.d)
@@ -95,9 +101,9 @@ $(OBJ_PATH)/%.o: %.s
 	@$(AS) $(ASFLAGS) $(CREATE_DEP) -o $@ $<
 
 
-$(BIN_PATH)/$(PROJECT): $(OBJS) $(LIB_PATH)/$(LIBS)
+$(BIN_PATH)/$(PROJECT): $(OBJS) $(addprefix $(SDK_LIB_PATH)/, $(SDK_LIBS))
 	@echo "Create $(PROJECT) (start address = $(START_ADDR))"
-	@$(LD) $(LDFLAGS) -o $@ $^ $(LIBS) $(TARGET).lib
+	@$(LD) $(LDFLAGS) -o $@ $^ $(SDK_LIBS) $(TARGET).lib
 ifeq ($(DEBUG),yes)
 	@echo "Create $(PROJECT).sym"
 	@sed -re 's/al 00(.{4}) \.(.+)$$/\1 \2/' $(BIN_PATH)/$(PROJECT).ca.sym | sort | uniq > $(BIN_PATH)/$(PROJECT).sym
